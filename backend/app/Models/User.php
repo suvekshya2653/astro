@@ -15,6 +15,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',  // <-- Important for admin vs customer
     ];
 
     protected $hidden = [
@@ -23,8 +24,35 @@ class User extends Authenticatable
     ];
 
 
+    /*
+    |--------------------------------------------------------------------------
+    | PROFILE RELATION
+    |--------------------------------------------------------------------------
+    */
     public function profile()
     {
         return $this->hasOne(UserProfile::class);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | USER → CHAT MESSAGES
+    |--------------------------------------------------------------------------
+    */
+    public function messages()
+    {
+        return $this->hasMany(ChatMessage::class, 'sender_id');
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | USER → CONVERSATIONS (CUSTOMER ONLY)
+    |--------------------------------------------------------------------------
+    */
+    public function conversations()
+    {
+        return $this->hasMany(Conversation::class, 'customer_id');
     }
 }

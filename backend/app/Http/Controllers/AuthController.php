@@ -5,15 +5,15 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class AuthController extends Controller
 {
     // =======================
-    // 📌 USER REGISTER
+    // REGISTER
     // =======================
     public function register(Request $request)
     {
-        // Validate new fields including gender
         $validatedData = $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users,email',
@@ -21,15 +21,14 @@ class AuthController extends Controller
             'gender'   => 'required|string',
         ]);
 
-        // Create user
         $user = User::create([
             'name'     => $validatedData['name'],
             'email'    => $validatedData['email'],
             'password' => Hash::make($validatedData['password']),
             'gender'   => $validatedData['gender'],
+            'role'     => 'customer',
         ]);
 
-        // Auto-login after register → create token
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
@@ -39,35 +38,89 @@ class AuthController extends Controller
         ]);
     }
 
-
     // =======================
-    // 📌 USER LOGIN
+    // LOGIN (Admin + Customer)
     // =======================
     public function login(Request $request)
     {
-        // Validate
         $request->validate([
             'email'    => 'required|email',
             'password' => 'required'
         ]);
 
-        // Find user
-        $user = User::where('email', $request->email)->first();
+        Log::info("Login attempt: " . $request->email);
 
-        // Wrong user or password
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        // -----------------------------------------
+        // ⭐ HARDCODED ADMIN LOGIN
+        // -----------------------------------------
+        if (
+            $request->email === 'sarita123@gmail.com' &&
+            $request->password === 'iamsaritaghimira'
+        ) {
+            Log::info("Admin login detected");
+
+            $admin = User::firstOrCreate(
+                ['email' => 'sarita123@gmail.com'],
+                [
+                    'name' => 'Sarita Ghimira',
+                    'password' => Hash::make('iamsaritaghimira'),
+                    'gender' => 'female',
+                    'role' => 'admin',
+                ]
+            );
+
+            // Force admin role
+            if ($admin->role !== 'admin') {
+                $admin->update(['role' => 'admin']);
+            }
+
+            $token = $admin->createToken('admin_token')->plainTextToken;
+
             return response()->json([
-                'message' => 'Invalid login credentials'
-            ], 401);
+                'message' => 'Admin login successful',
+                'token'   => $token,
+                'user'    => [
+                    'id' => $admin->id,
+                    'name' => $admin->name,
+                    'email' => $admin->email,
+                    'gender' => $admin->gender,
+                    'role' => 'admin',   // ← FIX
+                ],
+            ], 200);
         }
 
-        // Create token (this matches your screenshot)
+        // -----------------------------------------
+        // 🔹 NORMAL CUSTOMER LOGIN
+        // -----------------------------------------
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            Log::warning("Login failed for: " . $request->email);
+            return response()->json(['message' => 'Invalid login credentials'], 401);
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
             'message' => 'Login successful',
             'token'   => $token,
-            'user'    => $user,
+            'user'    => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'gender' => $user->gender,
+                'role' => $user->role ?? 'customer',   // ← FIX
+            ],
         ]);
+    }
+
+    // =======================
+    // LOGOUT
+    // =======================
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json(['message' => 'Logged out successfully']);
     }
 }

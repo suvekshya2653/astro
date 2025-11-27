@@ -9,19 +9,29 @@ class Message extends Model
 {
     use HasFactory;
 
-    // Add receiver_id to fillable
-    protected $fillable = ['user_id', 'receiver_id', 'text'];
+    protected $table = 'messages';
 
-    // Automatically load user with messages
+    protected $fillable = [
+        'user_id',        // sender (user or customer)
+        'receiver_id',    // receiver (user or admin)
+        'text',           // chat message
+        'conversation_id' // group under a conversation
+    ];
+
     protected $with = ['user'];
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function receiver()
     {
         return $this->belongsTo(User::class, 'receiver_id');
+    }
+
+    public function conversation()
+    {
+        return $this->belongsTo(Conversation::class);
     }
 }

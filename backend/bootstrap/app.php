@@ -13,15 +13,18 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+
+        // Enable CORS for API
         $middleware->api(prepend: [
             \Illuminate\Http\Middleware\HandleCors::class,
         ]);
 
-        // ✅ REMOVED: $middleware->statefulApi();
-        // We're using token-based auth, not cookie-based sessions
+        // ❌ No sessions for API (correct)
+        // $middleware->statefulApi();
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        // Return JSON for unauthenticated API requests
+
+        // Always return JSON for failed API authentication
         $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, $request) {
             if ($request->is('api/*')) {
                 return response()->json([
@@ -29,4 +32,20 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 401);
             }
         });
-    })->create();
+    })
+
+    ->withMiddleware(function (Middleware $middleware) {
+
+    // API CORS handler
+    $middleware->api(prepend: [
+        \Illuminate\Http\Middleware\HandleCors::class,
+    ]);
+
+    // ⭐ REGISTER MIDDLEWARE ALIASES HERE
+    $middleware->alias([
+        'admin' => \App\Http\Middleware\AdminMiddleware::class,
+    ]);
+    })
+
+
+    ->create();
